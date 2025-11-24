@@ -1,2 +1,4 @@
 .env
 *.exe
+lib/util.dll
+lib/util.so

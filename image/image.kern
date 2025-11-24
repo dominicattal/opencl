@@ -1,0 +1,8 @@
+__kernel void create_image(__global uchar* buf, int width, int height, int channels)
+{
+    uint x = get_global_id(0);
+    uint y = get_global_id(1);
+    uint idx = y * width * channels + x * channels;
+    buf[idx] = 255;
+    buf[idx+1] = 255;
+}
