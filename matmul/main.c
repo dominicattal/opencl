@@ -54,7 +54,6 @@ void test_cpu(cl_int N, cl_float* A, cl_float* B, cl_float* C)
     time_t t;
     t = clock();
 
-    // CPU
     for (i = 0; i < N; i++)
         for (j = 0; j < N; j++)
             for (k = 0; k < N; k++)
@@ -111,7 +110,7 @@ int main()
         B[i] = (cl_float)rand() / RAND_MAX;
     }
 
-    //test_cpu(N, A, B, C);
+    test_cpu(N, A, B, C);
 
     size_t global_work_dim[3] = {N, N, N};
 

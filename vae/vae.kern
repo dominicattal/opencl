@@ -1,0 +1,55 @@
+kernel void forward(global float* from, 
+                    global float* to, 
+                    global float* weights, 
+                    int from_length, 
+                    int to_length)
+{
+    int id = get_global_id(0);
+    float val = 0;
+    for (int i = 0; i < from_length; i++) {
+        val += from[i] * weights[i*to_length+id];
+    }   
+    float bias = weights[from_length*to_length+id];
+    val += bias;
+    to[id] = val;
+    to[id] = 1 / (1 + exp(-val));
+}
+
+kernel void set_error(global float* target, 
+                      global float* output,
+                      global float* errors)
+{
+    int id = get_global_id(0);
+    errors[id] = -(target[id] - output[id]);
+}
+
+kernel void backward(global float* from,
+                     global float* to,
+                     global float* errors_from, 
+                     global float* errors_to,
+                     global float* weights,
+                     int from_length,
+                     int to_length,
+                     float eta)
+{
+    int id = get_global_id(0);
+    float err = 0;
+    for (int i = 0; i < to_length; i++) {
+        float err_wrt_out = errors_to[i];
+        float out_wrt_net = to[i] * (1 - to[i]);
+        float net_wrt_w = from[id];
+        float err_wrt_w = err_wrt_out * out_wrt_net * net_wrt_w;
+        err += err_wrt_out * out_wrt_net * weights[id*to_length+i];
+        weights[id*to_length+i] -= eta * err_wrt_w;
+    }
+    errors_from[id] = err;
+
+    //float err_wrt_out = errors_to[id];
+    //float out_wrt_net = to[id] * (1 - to[id]);
+    //for (int i = 0; i < from_length; i++) {
+    //    float net_wrt_w = from[i];
+    //    float err_wrt_w = err_wrt_out * out_wrt_net * net_wrt_w;
+    //    err += err_wrt_out * out_wrt_net * weights[i*to_length+id];
+    //    weights[i*to_length+id] -= eta * err_wrt_w;
+    //}
+}
