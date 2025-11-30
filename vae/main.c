@@ -20,7 +20,7 @@
 #define MNIST_T10K_LABELS_PATH      "../datasets/mnist/t10k-images.idx1-ubyte"
 #define MNIST_NUM_IMAGES            (MNIST_TRAIN_IMAGES_COUNT + MNIST_T10K_IMAGES_COUNT)
 
-#define NUM_LAYERS  1
+#define NUM_LAYERS  2
 
 // ------------------------------------------------------------------
 
@@ -31,14 +31,20 @@ typedef struct {
 typedef enum {
     KERN_FORWARD,
     KERN_BACKWARD,
-    KERN_SET_ERROR,
+    KERN_ERROR_ZERO,
+    KERN_ERROR_ADD,
+    KERN_ERROR_DIVIDE,
+    KERN_ERROR_DIFFERENTIATE,
     NUM_KERNELS
 } KernelEnum;
 
 const char* kernel_names[NUM_KERNELS] = {
     "forward",
     "backward",
-    "set_error"
+    "error_zero",
+    "error_add",
+    "error_divide",
+    "error_differentiate"
 };
 
 typedef struct {
@@ -83,7 +89,7 @@ struct {
 
 // ------------------------------------------------------------------
 
-static cl_int layer_lengths[NUM_LAYERS] = {2};
+static cl_int layer_lengths[NUM_LAYERS] = {256, 32};
 
 cl_float rand_float(void)
 {
@@ -232,10 +238,10 @@ void opencl_init(void)
 
     ctx.width = IMAGE_LENGTH;
     ctx.height = IMAGE_LENGTH;
-    ctx.num_pixels = 2;
+    ctx.num_pixels = NUM_PIXELS;
     ctx.num_encoder_layers = n;
-    ctx.latent_space_length = 2;
-    ctx.learning_rate = 0.5;
+    ctx.latent_space_length = 10;
+    ctx.learning_rate = 0.1;
 
     size = (ctx.latent_space_length+1) * sizeof(cl_float);
     ctx.cl_latent_space_buffer = create_cl_buffer(size);
@@ -441,32 +447,13 @@ void vae_decode(void)
 void vae_feedforward(void)
 {
     vae_encode();
-    //vae_decode();
+    vae_decode();
 }
 
 void vae_backpropagate(void)
 {
-    cl_kernel kernel;
-    cl_int ret;
-    size_t work_dim_size;
-    kernel = ctx.kernels[KERN_SET_ERROR];
-    cl_float target[] = {0.01, 0.99};
-    cl_mem tmp = create_cl_buffer(sizeof(target));
-    clEnqueueWriteBuffer(ctx.queue, tmp, CL_TRUE, 0, sizeof(target), target, 0, NULL, NULL);
-    clSetKernelArg(kernel, 0, sizeof(cl_mem), &tmp);
-    clSetKernelArg(kernel, 1, sizeof(cl_mem), &ctx.cl_latent_space_buffer);
-    clSetKernelArg(kernel, 2, sizeof(cl_mem), &ctx.cl_error_buffers[0]);
-    //clSetKernelArg(kernel, 0, sizeof(cl_mem), &ctx.cl_input_image_buffer);
-    //clSetKernelArg(kernel, 1, sizeof(cl_mem), &ctx.cl_latent_space_buffer);
-    //clSetKernelArg(kernel, 2, sizeof(cl_mem), &ctx.cl_error_buffers[0]);
-    work_dim_size = ctx.num_pixels;
-    ret = clEnqueueNDRangeKernel(ctx.queue, kernel, 1, NULL, &work_dim_size,
-                            NULL, 0, NULL, NULL);
-    assert(ret == CL_SUCCESS);
-    clFinish(ctx.queue);
-
-    //neuralnet_backpropagate(&ctx.decoder, ctx.cl_latent_space_buffer, ctx.latent_space_length, 
-    //        ctx.cl_output_image_buffer, ctx.num_pixels);
+    neuralnet_backpropagate(&ctx.decoder, ctx.cl_latent_space_buffer, ctx.latent_space_length, 
+            ctx.cl_output_image_buffer, ctx.num_pixels);
     neuralnet_backpropagate(&ctx.encoder, ctx.cl_input_image_buffer, ctx.num_pixels,
             ctx.cl_latent_space_buffer, ctx.latent_space_length);
 }
@@ -482,10 +469,6 @@ Image* test_output(Image* image_in)
     return image_out;
 }
 
-void print_all()
-{
-}
-
 void vae_fit_step(Image* image)
 {
     size_t img_size = ctx.num_pixels * sizeof(cl_float);
@@ -494,48 +477,102 @@ void vae_fit_step(Image* image)
     vae_backpropagate();
 }
 
-void test(Image* image)
-{
-    image->data[0] = 0.05;
-    image->data[1] = 0.1;
-    cl_float W1[] = {0.15, 0.25, 0.2, 0.3, 0.35, 0.35};
-    cl_float W2[] = {0.4, 0.5, 0.45, 0.55, 0.6, 0.6};
-    cl_float buf[2];
-    clEnqueueWriteBuffer(ctx.queue, ctx.cl_input_image_buffer, CL_TRUE, 0, 2*sizeof(cl_float), image->data, 0, NULL, NULL);
-    clEnqueueWriteBuffer(ctx.queue, ctx.encoder.cl_weight_buffers[0], CL_TRUE, 0, sizeof(W1), W1, 0, NULL, NULL);
-    clEnqueueWriteBuffer(ctx.queue, ctx.encoder.cl_weight_buffers[1], CL_TRUE, 0, sizeof(W2), W2, 0, NULL, NULL);
-    for (int i = 0; i < 100; i++) {
-        vae_feedforward();
-        vae_backpropagate();
-        clEnqueueReadBuffer(ctx.queue, ctx.cl_latent_space_buffer, CL_TRUE, 0, 8, buf, 0, NULL, NULL);
-        printf("%f\n", 0.5 * (buf[0] - 0.01) * (buf[0] - 0.01) + 0.5 * (buf[1] - 0.99) * (buf[1] - 0.99));
-    }
-}
-
-void vae_fit(int N, Image* images, int epochs, int batch_size)
+void vae_fit(int num_images, Image* images, int epochs, int batch_size)
 {
     cl_float mse;
     cl_float data[NUM_PIXELS];
-    int i, j, epoch;
+    cl_kernel kernel;
+    size_t img_size = ctx.num_pixels * sizeof(cl_float);
+    size_t work_size_dim;
+    Image* image;
+    int i, j, k, epoch;
 
-    test(&images[0]);
-    //for (epoch = 0; epoch < 10; epoch++) {
-    //    for (i = 0; i < N; i++) {
-    //        vae_fit_step(&images[0]);
-    //        clEnqueueReadBuffer(ctx.queue, ctx.cl_latent_space_buffer, CL_TRUE, 0, 2 * sizeof(cl_float), data, 0, NULL, NULL);
-    //        mse = 0;
-    //        for (j = 0; j < 2; j++)
-    //            mse += 0.5 * (images[i].data[j] - data[j]) * (images[i].data[j] - data[j]);
-    //        printf("%d %f\n",i, mse);
-    //    }
-    //}
+    cl_mem signs = create_cl_buffer((ctx.num_pixels+1) * sizeof(cl_float));
+
+    work_size_dim = ctx.num_pixels+1;
+    for (epoch = 0; epoch < epochs; epoch++) {
+        i = 0;
+        while (i < num_images) {
+            kernel = ctx.kernels[KERN_ERROR_ZERO];
+            clSetKernelArg(kernel, 0, sizeof(cl_mem), &ctx.cl_error_buffers[0]);
+            clSetKernelArg(kernel, 1, sizeof(cl_mem), &signs);
+            clEnqueueNDRangeKernel(ctx.queue, kernel, 1, NULL, &work_size_dim, NULL, 0, NULL, NULL);
+            clFinish(ctx.queue);
+            for (j = 0; j < batch_size && (i+j) < num_images; j++) {
+                image = &images[i+j];
+                clEnqueueWriteBuffer(ctx.queue, ctx.cl_input_image_buffer, CL_TRUE, 0, img_size, image->data, 0, NULL, NULL);
+                vae_feedforward();
+                kernel = ctx.kernels[KERN_ERROR_ADD];
+                clSetKernelArg(kernel, 0, sizeof(cl_mem), &ctx.cl_input_image_buffer);
+                clSetKernelArg(kernel, 1, sizeof(cl_mem), &ctx.cl_output_image_buffer);
+                clSetKernelArg(kernel, 2, sizeof(cl_mem), &ctx.cl_error_buffers[0]);
+                clSetKernelArg(kernel, 3, sizeof(cl_mem), &signs);
+                clEnqueueNDRangeKernel(ctx.queue, kernel, 1, NULL, &work_size_dim, NULL, 0, NULL, NULL);
+                clFinish(ctx.queue);
+            }
+            kernel = ctx.kernels[KERN_ERROR_DIVIDE];
+            clSetKernelArg(kernel, 0, sizeof(cl_mem), &ctx.cl_error_buffers[0]);
+            clSetKernelArg(kernel, 1, sizeof(cl_int), &batch_size);
+            clEnqueueNDRangeKernel(ctx.queue, kernel, 1, NULL, &work_size_dim, NULL, 0, NULL, NULL);
+            clFinish(ctx.queue);
+            if (i%1000 > (i+batch_size)%1000) {
+                clEnqueueReadBuffer(ctx.queue, ctx.cl_error_buffers[0], CL_TRUE, 0, ctx.num_pixels * sizeof(cl_float), data, 0, NULL, NULL);
+                mse = 0;
+                for (k = 0; k < ctx.num_pixels; k++)
+                    mse += data[k];
+                printf("%d %f\n",i, mse);
+            }
+            kernel = ctx.kernels[KERN_ERROR_DIFFERENTIATE];
+            clSetKernelArg(kernel, 0, sizeof(cl_mem), &ctx.cl_error_buffers[0]);
+            clSetKernelArg(kernel, 1, sizeof(cl_mem), &signs);
+            clEnqueueNDRangeKernel(ctx.queue, kernel, 1, NULL, &work_size_dim, NULL, 0, NULL, NULL);
+            clFinish(ctx.queue);
+            vae_backpropagate();
+            i += batch_size;
+        }
+    }
+
+    clReleaseMemObject(signs);
+}
+
+void move_in_latent_space(Image* image)
+{
+    size_t img_size = NUM_PIXELS * sizeof(cl_float);
+    int n = ctx.latent_space_length;
+    size_t latent_space_size = n * sizeof(cl_float);
+    cl_float* latent_space = malloc(latent_space_size);
+    cl_float* buf = malloc(latent_space_size);
+    cl_float step = 0.2;
+    char name[128];
+    Image* output = malloc(sizeof(Image));
+    clEnqueueWriteBuffer(ctx.queue, ctx.cl_input_image_buffer, CL_TRUE, 0, img_size, image->data, 0, NULL, NULL);
+    vae_encode();
+    clEnqueueReadBuffer(ctx.queue, ctx.cl_latent_space_buffer, CL_TRUE, 0, latent_space_size, latent_space, 0, NULL, NULL);
+    for (int i = 0; i < n; i++) {
+        memcpy(buf, latent_space, latent_space_size);
+        buf[i] -= step * 2;
+        for (int j = 0; j < 5; j++) {
+            clEnqueueWriteBuffer(ctx.queue, ctx.cl_latent_space_buffer, CL_TRUE, 0, latent_space_size, buf, 0, NULL, NULL);
+            vae_decode();
+            clEnqueueReadBuffer(ctx.queue, ctx.cl_output_image_buffer, CL_TRUE, 0, img_size, output->data, 0, NULL, NULL);
+            sprintf(name, "move/img%d-%d.png", i, j);
+            image_write(name, output);
+            buf[i] += step;
+        }
+    }
+    puts("");
+    free(latent_space);
+    free(buf);
+    free(output);
 }
 
 int main()
 {
     Image* images = mnist_load();
     opencl_init();
-    vae_fit(MNIST_NUM_IMAGES, images, 1, 1);
+    vae_fit(MNIST_NUM_IMAGES, images, 10, 64);
+    image_write("move/input.png", &images[0]);
+    move_in_latent_space(&images[0]);
     opencl_cleanup();
     free(images);
 }
