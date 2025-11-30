@@ -43,3 +43,25 @@ kernel void backward(global float* from,
     }
     errors_from[id] = err;
 }
+        
+kernel void backward_no_update(global float* from,
+                               global float* to,
+                               global float* errors_from, 
+                               global float* errors_to,
+                               global float* weights,
+                               int from_length,
+                               int to_length,
+                               float eta)
+{
+    int id = get_global_id(0);
+    float err = 0;
+    for (int i = 0; i < to_length; i++) {
+        float err_wrt_out = errors_to[i];
+        float out_wrt_net = to[i] * (1 - to[i]);
+        float net_wrt_w = from[id];
+        float err_wrt_w = err_wrt_out * out_wrt_net * net_wrt_w;
+        err += err_wrt_out * out_wrt_net * weights[id*to_length+i];
+        //weights[id*to_length+i] -= eta * err_wrt_w;
+    }
+    errors_from[id] = err;
+}
