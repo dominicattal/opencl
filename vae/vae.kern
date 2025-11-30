@@ -11,37 +11,15 @@ kernel void forward(global float* from,
     }   
     float bias = weights[from_length*to_length+id];
     val += bias;
-    to[id] = val;
     to[id] = 1 / (1 + exp(-val));
 }
 
-kernel void error_zero(global float* errors, global float* signs)
-{
-    int id = get_global_id(0);
-    errors[id] = 0;
-    signs[id] = 0;
-}
-
-kernel void error_add(global float* target,
+kernel void error_set(global float* target,
                       global float* output,
-                      global float* errors,
-                      global float* signs)
+                      global float* errors)
 {
     int id = get_global_id(0);
-    errors[id] += 0.5 * (target[id] - output[id]) * (target[id] - output[id]);
-    signs[id] += -(target[id] - output[id]);
-}
-
-kernel void error_divide(global float* errors, int num)
-{
-    errors[get_global_id(0)] /= num;
-}
-
-kernel void error_differentiate(global float* errors, global float* signs)
-{
-    int id = get_global_id(0);
-    int sgn = (1-signbit(signs[id])) * 2 - 1;
-    errors[id] = sgn * sqrt(2 * errors[id]);
+    errors[id] = -(target[id] - output[id]);
 }
 
 kernel void backward(global float* from,
