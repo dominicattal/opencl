@@ -11,15 +11,74 @@ kernel void forward(global float* from,
     }   
     float bias = weights[from_length*to_length+id];
     val += bias;
+    to[id] = val;
+}
+
+kernel void forward_sigmoid(global float* from, 
+                            global float* to, 
+                            global float* weights, 
+                            int from_length, 
+                            int to_length)
+{
+    int id = get_global_id(0);
+    float val = 0;
+    for (int i = 0; i < from_length; i++) {
+        val += from[i] * weights[i*to_length+id];
+    }   
+    float bias = weights[from_length*to_length+id];
+    val += bias;
     to[id] = 1 / (1 + exp(-val));
 }
 
-kernel void error_set(global float* target,
-                      global float* output,
-                      global float* errors)
+kernel void forward_relu(global float* from,
+                         global float* to,
+                         global float* weights,
+                         int from_length,
+                         int to_length)
 {
     int id = get_global_id(0);
-    errors[id] = -(target[id] - output[id]);
+    float val = 0;
+    for (int i = 0; i < from_length; i++) {
+        val += from[i] * weights[i*to_length+id];
+    }   
+    float bias = weights[from_length*to_length+id];
+    val += bias;
+    to[id] = max(0.0f, val);
+}
+
+kernel void set_recon_loss(global float* target,
+                           global float* output,
+                           global float* errors)
+{
+    int id = get_global_id(0);
+    errors[id] = output[id] - target[id];
+}
+
+kernel void add_kl_loss(global float* distributions, 
+                        global float* epsilon,
+                        global float* errors, 
+                        int length)
+{
+    int id = get_global_id(0);
+    int mean_idx = get_global_id(0);
+    int logvar_idx = get_global_id(0)+length;
+    float mean = distributions[mean_idx];
+    float logvar = distributions[logvar_idx];
+    float cur_loss = errors[id];
+    errors[mean_idx]   = cur_loss + mean;
+    errors[logvar_idx] = cur_loss * 0.5 * exp(0.5 * logvar) * epsilon[id]
+                         + 0.5 * (exp(logvar) - 1.0);
+}
+
+kernel void sample_distributions(global float* distribution,
+                                 global float* epsilon,
+                                 global float* samples,
+                                 int length)
+{
+    int id = get_global_id(0);
+    float mean = distribution[id];
+    float log_var = distribution[id+length];
+    samples[id] = mean + exp(0.5 * log_var) * epsilon[id];
 }
 
 kernel void backward(global float* from,
@@ -35,7 +94,7 @@ kernel void backward(global float* from,
     float err = 0;
     for (int i = 0; i < to_length; i++) {
         float err_wrt_out = errors_to[i];
-        float out_wrt_net = to[i] * (1 - to[i]);
+        float out_wrt_net = 1.0f;
         float net_wrt_w = from[id];
         float err_wrt_w = err_wrt_out * out_wrt_net * net_wrt_w;
         err += err_wrt_out * out_wrt_net * weights[id*to_length+i];
@@ -43,15 +102,15 @@ kernel void backward(global float* from,
     }
     errors_from[id] = err;
 }
-        
-kernel void backward_no_update(global float* from,
-                               global float* to,
-                               global float* errors_from, 
-                               global float* errors_to,
-                               global float* weights,
-                               int from_length,
-                               int to_length,
-                               float eta)
+
+kernel void backward_sigmoid(global float* from,
+                             global float* to,
+                             global float* errors_from, 
+                             global float* errors_to,
+                             global float* weights,
+                             int from_length,
+                             int to_length,
+                             float eta)
 {
     int id = get_global_id(0);
     float err = 0;
@@ -61,7 +120,29 @@ kernel void backward_no_update(global float* from,
         float net_wrt_w = from[id];
         float err_wrt_w = err_wrt_out * out_wrt_net * net_wrt_w;
         err += err_wrt_out * out_wrt_net * weights[id*to_length+i];
-        //weights[id*to_length+i] -= eta * err_wrt_w;
+        weights[id*to_length+i] -= eta * err_wrt_w;
+    }
+    errors_from[id] = err;
+}
+
+kernel void backward_relu(global float* from,
+                          global float* to,
+                          global float* errors_from, 
+                          global float* errors_to,
+                          global float* weights,
+                          int from_length,
+                          int to_length,
+                          float eta)
+{
+    int id = get_global_id(0);
+    float err = 0;
+    for (int i = 0; i < to_length; i++) {
+        float err_wrt_out = errors_to[i];
+        float out_wrt_net = (to[i] > 0) ? 1.0f : 0.0f;
+        float net_wrt_w = from[id];
+        float err_wrt_w = err_wrt_out * out_wrt_net * net_wrt_w;
+        err += err_wrt_out * out_wrt_net * weights[id*to_length+i];
+        weights[id*to_length+i] -= eta * err_wrt_w;
     }
     errors_from[id] = err;
 }

@@ -86,6 +86,7 @@ void data_destroy(MnistData* data)
 
 int main()
 {
+    AutoEncoder* ae;
     VAE* vae;
     int img_width = IMAGE_LENGTH;
     int img_height = IMAGE_LENGTH;
@@ -97,22 +98,43 @@ int main()
     float* input;
     float* output;
     float* heatmap;
+    float** heatmaps;
     float y1,y2;
     MnistData data;
-
-    //vae = vae_create(img_width, img_height, latent_space_length, sizeof(num_layers)/sizeof(int), num_layers);
-    vae = vae_read("pretrained/3.vae");
+    const char* name = "pretrained/2.ae";
 
     data = mnist_load(num_images);
-    //vae_train(vae, num_images, data.buffers, 0.1, 3);
 
-    input = data.buffers[0];
-    output = vae_feedforward(vae, input);
-    heatmap = vae_create_heatmap(vae, input, output);
-    write_image("in.png", input);
-    write_image("out.png", output);
-    write_image("heatmap.png", heatmap);
+    //vae = vae_create(img_width, img_height, latent_space_length, sizeof(num_layers)/sizeof(int), num_layers);
+    //vae = vae_read(name);
+    //vae_train(vae, num_images, data.buffers, 0.1, 2);
+    //vae_write(vae, name);
+    //output = vae_feedforward(vae, data.buffers[2]);
+    //write_image("images/in.png", data.buffers[2]);
+    //write_image("images/out.png", output);
+    //puts("x,y,label");
+    //for (i = 0; i < num_images; i++) {
+    //    output = vae_encode(vae, data.buffers[i]);
+    //    printf("%f,%f,%d\n", output[0], output[1], data.labels[i]);
+    //}
+    //vae_destroy(vae);
 
+    //ae = ae_create(img_width, img_height, latent_space_length, sizeof(num_layers)/sizeof(int), num_layers);
+    ae = ae_read(name);
+
+    //ae_train(ae, num_images, data.buffers, 0.1, 1);
+    //ae_write(ae, name);
+
+    input = data.buffers[2];
+    output = ae_feedforward(ae, input);
+    write_image("images/in.png", input);
+    write_image("images/out.png", output);
+    heatmaps = ae_create_heatmaps(ae, input);
+    for (i = 0; i < latent_space_length; i++) {
+        char buf[128];
+        sprintf(buf, "images/heatmap%d.png", i);
+        write_image(buf, heatmaps[i]);
+    }
     //puts("x,y,label");
     //for (i = 0; i < num_images; i++) {
     //    latent_space = vae_encode(vae, data.buffers[i]);
@@ -131,8 +153,8 @@ int main()
     //free(output);
     //free(latent_space);
 
-    //vae_write(vae, "pretrained/3.vae");
-    vae_destroy(vae);
+    //ae_write(ae, name);
+    //ae_destroy(ae);
 
     data_destroy(&data);
 }
