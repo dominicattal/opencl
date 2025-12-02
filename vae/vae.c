@@ -128,24 +128,6 @@ static void fill_buffer_random(cl_float* buffer, int num_rows, int num_cols, cl_
             buffer[i*num_cols+j] = rand_float(min, max);
 }
 
-static void read_info(cl_platform_id platform)
-{
-    char* value;
-    size_t size;
-
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, 0, NULL, &size);
-    value = malloc(size * sizeof(char));
-    clGetPlatformInfo(platform, CL_PLATFORM_NAME, size, value, NULL);
-    puts(value);
-
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, 0, NULL, &size);
-    value = malloc(size * sizeof(char));
-    clGetPlatformInfo(platform, CL_PLATFORM_VERSION, size, value, NULL);
-    puts(value);
-
-    free(value);
-}
-
 static void neuralnet_create(cl_context context, cl_command_queue queue, NeuralNet* net, cl_int num_layers, cl_int input_length, cl_int output_length)
 {
     cl_float* buf;
@@ -197,10 +179,7 @@ static void neuralnet_create(cl_context context, cl_command_queue queue, NeuralN
         num_rows = net->weight_sizes[i].num_rows;
         num_cols = net->weight_sizes[i].num_cols;
         size = num_rows * num_cols * sizeof(cl_float);
-        if (net->layer_activations[i] == ACT_SIGMOID)
-            fill_buffer_random(buf, num_rows, num_cols, -1.0, 1.0);
-        else
-            fill_buffer_random(buf, num_rows, num_cols, -1.0, 1.0);
+        fill_buffer_random(buf, num_rows, num_cols, -0.1, 0.1);
         clEnqueueWriteBuffer(queue, net->cl_weight_buffers[i], CL_TRUE, 0, size, buf, 0, NULL, NULL);
     }
 
@@ -560,7 +539,7 @@ float* ae_decode(AutoEncoder* ae, float* data)
 float* ae_create_heatmap(AutoEncoder* ae, float* input, int latent_space_idx)
 {
     cl_float min_val, max_val, diff;
-    size_t img_size, latent_space_size, work_size_dim;
+    size_t img_size, latent_space_size;
     float* output;
     float* in_data;
     int i;
@@ -594,7 +573,7 @@ float* ae_create_heatmap(AutoEncoder* ae, float* input, int latent_space_idx)
 float** ae_create_heatmaps(AutoEncoder* ae, float* input)
 {
     cl_float min_val, max_val, diff;
-    size_t img_size, latent_space_size, work_size_dim;
+    size_t img_size, latent_space_size;
     float** output;
     float* in_data;
     int i, j;
@@ -822,6 +801,7 @@ VAE* vae_create(int img_width, int img_height, int latent_space_length, int num_
         vae->encoder.layer_activations[i] = ACT_SIGMOID;
         vae->decoder.layer_activations[i] = ACT_SIGMOID;
     }
+    vae->encoder.layer_activations[num_layers] = ACT_NONE;
     neuralnet_create(vae->context, vae->queue, &vae->encoder, vae->num_layers, vae->num_pixels, 2*vae->latent_space.length);
     neuralnet_create(vae->context, vae->queue, &vae->decoder, vae->num_layers, vae->latent_space.length, vae->num_pixels);
 
@@ -848,7 +828,6 @@ static void vae_generate_epsilon_buffer(VAE* vae)
 {
     // Box-Muller transform
     size_t size;
-    cl_float u1, u2;
     cl_float* buf;
     buf = malloc(vae->latent_space.length * sizeof(cl_float));
     for (int i = 0; i < vae->latent_space.length; i++)
@@ -856,6 +835,12 @@ static void vae_generate_epsilon_buffer(VAE* vae)
     size = vae->latent_space.length * sizeof(cl_float);
     clEnqueueWriteBuffer(vae->queue, vae->latent_space.cl_epsilon_buffer, CL_TRUE, 0, size, buf, 0, NULL, NULL);
     free(buf);
+}
+
+void vae_seed(VAE* vae, unsigned long long seed)
+{
+    srand(seed);
+    vae_generate_epsilon_buffer(vae);
 }
 
 static void vae_train_feedforward_encoder(VAE* vae)
@@ -1017,7 +1002,6 @@ float* vae_feedforward(VAE* vae, float* data)
 {
     size_t img_size = vae->num_pixels * sizeof(cl_float);
     float* output = malloc(img_size * sizeof(float));
-    vae_generate_epsilon_buffer(vae);
     clEnqueueWriteBuffer(vae->queue, vae->cl_input_image_buffer, CL_TRUE, 0, img_size, data, 0, NULL, NULL);
     vae_train_feedforward(vae);
     clEnqueueReadBuffer(vae->queue, vae->cl_output_image_buffer, CL_TRUE, 0, img_size, output, 0, NULL, NULL);
@@ -1029,7 +1013,6 @@ float* vae_encode(VAE* vae, float* data)
     size_t img_size = vae->num_pixels * sizeof(cl_float);
     size_t latent_space_size = vae->latent_space.length * sizeof(cl_float);
     float* output = malloc(vae->latent_space.length * sizeof(float));
-    vae_generate_epsilon_buffer(vae);
     clEnqueueWriteBuffer(vae->queue, vae->cl_input_image_buffer, CL_TRUE, 0, img_size, data, 0, NULL, NULL);
     vae_train_feedforward_encoder(vae);
     vae_train_sample_latent_space(vae);
@@ -1048,40 +1031,56 @@ float* vae_decode(VAE* vae, float* data)
     return output;
 }
 
-float* vae_create_heatmap(VAE* vae, float* in_data, float* out_data)
+float** vae_create_heatmaps(VAE* vae, float* data)
 {
-    //cl_float min_val, max_val, diff;
-    //cl_kernel kernel;
-    //size_t img_size, work_size_dim;
-    //float* output;
-    //int i;
-    //img_size = vae->num_pixels * sizeof(cl_float);
-    //output = malloc(img_size * sizeof(float));
-    //work_size_dim = vae->num_pixels+1;
-    //clEnqueueWriteBuffer(vae->queue, vae->cl_input_image_buffer, CL_TRUE, 0, img_size, in_data, 0, NULL, NULL);
-    //clEnqueueWriteBuffer(vae->queue, vae->cl_output_image_buffer, CL_TRUE, 0, img_size, out_data, 0, NULL, NULL);
-    //kernel = vae->kernels[KERN_SET_RECON_LOSS];
-    //clSetKernelArg(kernel, 0, sizeof(cl_mem), &vae->cl_input_image_buffer);
-    //clSetKernelArg(kernel, 1, sizeof(cl_mem), &vae->cl_output_image_buffer);
-    //clSetKernelArg(kernel, 2, sizeof(cl_mem), &vae->cl_error_buffers[0]);
-    //clEnqueueNDRangeKernel(vae->queue, kernel, 1, NULL, &work_size_dim, NULL, 0, NULL, NULL);
-    //clFinish(vae->queue);
-    //neuralnet_backpropagate(vae->queue, vae->kernels, &vae->decoder, vae->cl_latent_space_buffer, vae->latent_space_length, 
-    //        vae->cl_output_image_buffer, vae->num_pixels, vae->cl_error_buffers, 0.0f);
-    //neuralnet_backpropagate(vae->queue, vae->kernels, &vae->encoder, vae->cl_input_image_buffer, vae->num_pixels,
-    //        vae->cl_latent_space_buffer, vae->latent_space_length, vae->cl_error_buffers, 0.0f);
-    //clEnqueueReadBuffer(vae->queue, vae->cl_error_buffers[0], CL_TRUE, 0, img_size, output, 0, NULL, NULL);
-    //min_val = max_val = output[0];
-    //for (i = 1; i < vae->num_pixels; i++) {
-    //    max_val = (output[i] > max_val) ? output[i] : max_val;
-    //    min_val = (output[i] < min_val) ? output[i] : min_val;
-    //}
-    //printf("%f %f\n", min_val, max_val);
-    //diff = max_val - min_val;
-    //for (i = 0; i < vae->num_pixels; i++)
-    //    output[i] = 1 - (output[i] - min_val) / diff;
-    //return output;
-    return NULL;
+    float** heatmaps;
+    float* output;
+    float latent_space[10];
+    float min_val, max_val;
+    float px;
+    size_t img_size, ls_size;
+    int i, j;
+
+    img_size = vae->num_pixels * sizeof(float);
+    ls_size = vae->latent_space.length * sizeof(float);
+    output = calloc(vae->num_pixels, sizeof(float));
+    heatmaps = malloc(vae->latent_space.length * sizeof(float*));
+    for (i = 0; i < vae->latent_space.length; i++)
+        heatmaps[i] = malloc(vae->num_pixels * sizeof(float));
+
+    min_val = max_val = 0;
+    clEnqueueWriteBuffer(vae->queue, vae->cl_output_image_buffer, CL_TRUE, 0, img_size, data, 0, NULL, NULL);
+    for (i = 0; i < vae->num_pixels; i++) {
+        output[i] = 1.0f;
+        clEnqueueWriteBuffer(vae->queue, vae->cl_error_buffers[0], CL_TRUE, 0, img_size, output, 0, NULL, NULL);
+        neuralnet_backpropagate(vae->queue, 
+                                vae->kernels, 
+                                &vae->decoder, 
+                                vae->latent_space.cl_sample_buffer, 
+                                vae->latent_space.length, 
+                                vae->cl_output_image_buffer, 
+                                vae->num_pixels, 
+                                vae->cl_error_buffers, 
+                                0.0f);
+        clEnqueueReadBuffer(vae->queue, vae->cl_error_buffers[0], CL_TRUE, 0, ls_size, latent_space, 0, NULL, NULL);
+        for (j = 0; j < vae->latent_space.length; j++) {
+            heatmaps[j][i] = latent_space[j];
+            min_val = (latent_space[j] < min_val) ? latent_space[j] : min_val;
+            max_val = (latent_space[j] > max_val) ? latent_space[j] : max_val;
+        }
+        output[i] = 0.0f;
+    }
+    for (i = 0; i < vae->latent_space.length; i++) {
+        for (j = 0; j < vae->num_pixels; j++) {
+            px = heatmaps[i][j];
+            if (px > 0)
+                heatmaps[i][j] = px / max_val * 127.0 + 128.0;
+            else
+                heatmaps[i][j] = 128 - px / min_val * 128.0;
+        }
+    }
+
+    return heatmaps;
 }
 
 /*
