@@ -294,7 +294,7 @@ void test10(MnistData* data)
     float* output;
     const char* name;
     //name = "pretrained/relu-256-64-10.vae";
-    name = "pretrained/400-200-10.vae";
+    name = "pretrained/.vae";
     vae = vae_read(name);
     input = data->buffers[3];
     interpolate_latent_space10(vae, input);
@@ -311,8 +311,8 @@ int main()
 
     srand(time(NULL));
     data = mnist_load(MNIST_NUM_IMAGES);
-    train(&data);
+    //train(&data);
     //test10(&data);
-    //test2(&data);
+    test2(&data);
     data_destroy(&data);
 }

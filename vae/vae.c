@@ -120,6 +120,16 @@ static cl_float guass_dist(float mean, float std)
     return z * std + mean;
 }
 
+static void print_buf(VAE* vae, cl_mem m, float size)
+{
+    cl_float* buf = malloc(size);
+    clEnqueueReadBuffer(vae->queue, m, CL_TRUE, 0, size, buf, 0, NULL, NULL);
+    for (int i = 0; i < size / sizeof(float); i++)
+        printf("%f ", buf[i]);
+    puts("");
+    free(buf);
+}
+
 static void fill_buffer_random(cl_float* buffer, int num_rows, int num_cols, cl_float min, cl_float max)
 {
     int i, j;
