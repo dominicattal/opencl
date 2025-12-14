@@ -2,3 +2,9 @@
 *.exe
 lib/util.dll
 lib/util.so
+vae/heatmap
+vae/csv
+vae/images
+vae/bin
+vae/interp
+vae/traverse
