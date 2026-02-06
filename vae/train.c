@@ -20,7 +20,7 @@ void train_vae(void)
     ActivationEnum act;
 
     // params
-    name = "pretrained/relu-512-256-10.vae";
+    name = "pretrained/sigmoid-512-256-10.vae";
     img_width = IMAGE_LENGTH;
     img_height = IMAGE_LENGTH;
     latent_space_length = 10;
@@ -30,12 +30,12 @@ void train_vae(void)
     eta = 0.0005;
     beta = 2.0;
     num_epochs = 1;
-    act = ACT_RELU;
+    act = ACT_SIGMOID;
     // ------
 
     data = mnist_load(MNIST_NUM_IMAGES);
-    //vae = vae_create(img_width, img_height, latent_space_length, num_layers, layer_lengths, act);
-    vae = vae_read(name);
+    vae = vae_create(img_width, img_height, latent_space_length, num_layers, layer_lengths, act);
+    //vae = vae_read(name);
     
     vae_train(vae, MNIST_NUM_IMAGES, data->buffers, eta, beta, num_epochs);
 
