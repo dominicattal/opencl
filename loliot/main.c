@@ -3,6 +3,8 @@
 #include <time.h>
 #include <stdlib.h>
 #include <assert.h>
+
+#define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 
 const int LENGTH = 1000000;

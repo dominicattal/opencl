@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/stat.h>
 
 #define DEFAULT_SCALE 3
 
@@ -66,6 +67,7 @@ void traverse_vae(VAE* vae, float* in)
     figure_destroy(fig);
     free(ls);
     free(new_ls);
+    puts("Wrote traversal to traverse/vae/traversal.png");
 }
 
 void traverse_ae(AutoEncoder* ae, float* in)
@@ -117,21 +119,36 @@ void traverse_ae(AutoEncoder* ae, float* in)
     figure_destroy(fig);
     free(ls);
     free(new_ls);
+    puts("Wrote traversal to traverse/ae/traversal.png");
 }
 
-int main()
+int main(int argc, char** argv)
 {
     MnistData* data;
     AutoEncoder* ae;
     VAE* vae;
     float* in;
+    int string_length;
+
+    if (argc == 1) {
+        puts("Requires one argument: path to model");
+        return 0;
+    }
+
+    string_length = strlen(argv[1]);
     data = mnist_load(MNIST_NUM_IMAGES);
     in = data->buffers[1];
-    ae = ae_read("pretrained/sigmoid-256-256-2-2.ae");
-    vae = vae_read("pretrained/relu-512-256-10.vae");
-    traverse_vae(vae, in);
-    //traverse_ae(ae, in);
-    vae_destroy(vae);
-    ae_destroy(ae);
+    if (string_length > 3 && strcmp(argv[1], ".ae") == 0) {
+        ae = ae_read(argv[1]);
+        traverse_ae(ae, in);
+        ae_destroy(ae);
+    } else if (string_length > 3 && strcmp(argv[1], ".vae") {
+        vae = vae_read(argv[1]);
+        traverse_vae(vae, in);
+        vae_destroy(vae);
+    } else {
+        puts("path to file must end in .ae or .vae");
+    }
+
     mnist_destroy(data);
 }

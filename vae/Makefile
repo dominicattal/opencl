@@ -1,6 +1,4 @@
-include ../.env
-
-ARGS=-I../lib -Wall -Wextra $(OPENCL_PATH) ../lib/util.c fig.c vae.c mnist.c
+ARGS=-I../lib -Wall -Wextra ../lib/util.c fig.c vae.c mnist.c -lOpenCL -lm -Wno-unused-result
 
 all:
 	@echo "interp   - create interpolation between two images"
@@ -13,7 +11,7 @@ interp: bin
 	@mkdir -p interp
 	@mkdir -p interp/vae
 	@mkdir -p interp/ae
-	gcc $(ARGS) -O2 interp.c -o bin/interp.exe
+	gcc $(ARGS) -Og -g3 interp.c -o bin/interp.exe
 
 csv: bin
 	@mkdir -p csv

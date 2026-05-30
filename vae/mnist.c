@@ -19,7 +19,15 @@ MnistData* mnist_load(int num_images)
     data->labels = malloc(num_images * sizeof(int));
     data->num_images = 0;
     images_file = fopen(MNIST_TRAIN_IMAGES_PATH, "rb");
+    if (images_file == NULL) {
+        puts("Could not open train images path");
+        exit(1);
+    }
     labels_file = fopen(MNIST_TRAIN_LABELS_PATH, "rb");
+    if (labels_file == NULL) {
+        puts("Could not open train labels path");
+        exit(1);
+    }
     assert(images_file != NULL);
     fread(garbage, sizeof(unsigned char), 16, images_file);
     fread(garbage, sizeof(unsigned char), 8, labels_file);
@@ -34,7 +42,15 @@ MnistData* mnist_load(int num_images)
     fclose(labels_file);
 
     images_file = fopen(MNIST_T10K_IMAGES_PATH, "rb");
+    if (images_file == NULL) {
+        puts("Could not open T10K images path");
+        exit(1);
+    }
     labels_file = fopen(MNIST_T10K_LABELS_PATH, "rb");
+    if (labels_file == NULL) {
+        printf("Could not open T10K labels path: %s\n", MNIST_T10K_LABELS_PATH);
+        exit(1);
+    }
     assert(images_file != NULL);
     fread(garbage, sizeof(unsigned char), 16, images_file);
     fread(garbage, sizeof(unsigned char), 8, labels_file);

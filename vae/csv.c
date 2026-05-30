@@ -7,26 +7,30 @@ void latent_space_csv_vae(VAE* vae, MnistData* data)
 {
     float* output;
     FILE* fptr;
-    fptr = fopen("csv/latent_space_vae.csv", "wb");
+    char* path = "csv/latent_space_vae.csv";
+    fptr = fopen(path, "wb");
     fprintf(fptr, "x,y,label\n");
     for (int i = 0; i < MNIST_NUM_IMAGES; i++) {
         output = vae_encode(vae, data->buffers[i]);
         fprintf(fptr, "%f,%f,%d\n", output[0], output[1], data->labels[i]);
     }
     fclose(fptr);
+    printf("Wrote csv for vae to %s\n", path);
 }
 
 void latent_space_csv_ae(AutoEncoder* ae, MnistData* data)
 {
     float* output;
     FILE* fptr;
-    fptr = fopen("csv/latent_space_ae.csv", "wb");
+    char* path = "csv/latent_space_vae.csv";
+    fptr = fopen(path, "wb");
     fprintf(fptr, "x,y,label\n");
     for (int i = 0; i < MNIST_NUM_IMAGES; i++) {
         output = ae_encode(ae, data->buffers[i]);
         fprintf(fptr, "%f,%f,%d\n", output[0], output[1], data->labels[i]);
     }
     fclose(fptr);
+    printf("Wrote csv for vae to %s\n", path);
 }
 
 int main()

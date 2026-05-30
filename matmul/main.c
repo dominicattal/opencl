@@ -3,9 +3,11 @@
 #include <time.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <CL/cl.h>
 #include <time.h>
 #include <util.h>
+
+#define CL_TARGET_OPENCL_VERSION 300
+#include <CL/cl.h>
 
 void print_info(cl_platform_id platform, cl_device_id device)
 {
@@ -27,7 +29,7 @@ void print_info(cl_platform_id platform, cl_device_id device)
     clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, sizeof(cl_uint), &num, NULL);
     printf("WORK ITEM DIM: %d\n", num);
     clGetDeviceInfo(device, CL_DEVICE_MAX_WORK_ITEM_SIZES, sizeof(sizes), sizes, NULL);
-    printf("LOCAL DIM: %llu %llu %llu\n", sizes[0], sizes[1], sizes[2]);
+    printf("LOCAL DIM: %lu %lu %lu\n", sizes[0], sizes[1], sizes[2]);
 
     free(value);
 }
@@ -37,7 +39,7 @@ void print_kernel_info(const char* name, cl_kernel kernel, cl_device_id device)
     size_t size;
     clGetKernelWorkGroupInfo(kernel, device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &size, NULL);
     puts(name);
-    printf("KERNEL WORK GROUP SIZE: %llu\n", size);
+    printf("KERNEL WORK GROUP SIZE: %lu\n", size);
 }
 
 void print_time(cl_int N, time_t t, const char* device, cl_float* C)

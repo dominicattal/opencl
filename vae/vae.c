@@ -4,9 +4,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <CL/cl.h>
 #include <util.h>
 #include <math.h>
+
+#define CL_TARGET_OPENCL_VERSION 300
+#include <CL/cl.h>
 
 typedef enum {
     KERN_FORWARD,

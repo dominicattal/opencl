@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
+
+#define CL_TARGET_OPENCL_VERSION 300
 #include <CL/cl.h>
 
 void print_platform_device_info_type(cl_device_id device, const char* fmt)

@@ -3,10 +3,12 @@
 #include <time.h>
 #include <stdlib.h>
 #include <assert.h>
-#include <CL/cl.h>
 #include <util.h>
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb_image_write.h>
+
+#define CL_TARGET_OPENCL_VERSION 300
+#include <CL/cl.h>
 
 const int WIDTH = 256;
 const int HEIGHT = 256;

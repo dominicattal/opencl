@@ -5,11 +5,10 @@
 #include <stdlib.h>
 #include <time.h>
 
-void train_vae(void)
+void train_vae(const char* name)
 {
     MnistData* data;
     VAE* vae;
-    const char* name;
     float* output;
     int img_width, img_height;
     int latent_space_length;
@@ -20,7 +19,6 @@ void train_vae(void)
     ActivationEnum act;
 
     // params
-    name = "pretrained/sigmoid-512-256-10.vae";
     img_width = IMAGE_LENGTH;
     img_height = IMAGE_LENGTH;
     latent_space_length = 10;
@@ -49,8 +47,15 @@ void train_vae(void)
     mnist_destroy(data);
 }
 
-int main()
+int main(int argc, char** argv)
 {
-    train_vae();
+    char* default_path = "pretrained/model.vae";
+    if (argc == 1) {
+        printf("No path name given, defaulting to %s\n", default_path);
+        train_vae(default_path);
+    } else {
+        printf("Writing to %s\n", argv[1]);
+        train_vae(argv[1]);
+    }
     return 0;
 }

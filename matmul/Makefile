@@ -1,4 +1,2 @@
-include ../.env
-
 all:
-	gcc -I../lib ../lib/util.c $(OPENCL_PATH) -Wall -Wextra main.c -o a.exe
+	gcc -I../lib ../lib/util.c -Wall -Wextra main.c -lOpenCL -o a.exe
