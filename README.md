@@ -1,12 +1,9 @@
 # OpenCL
 
+Collection of OpenCL projects I've made.
+
 ### Setup
 Install OpenCL drivers on your device, which depends on your hardware + OS. Here is a link for [ubuntu](https://support.zivid.com/en/latest/camera/getting-started/software-installation/gpu/install-opencl-drivers-ubuntu.html):
-
-Create .env file in root directory with a single field
-```
-OPENCL_PATH=path/to/dll
-```
 
 ### Helpful links:
 https://registry.khronos.org/OpenCL/sdk/3.0/docs/man/html \
