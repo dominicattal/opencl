@@ -26,7 +26,7 @@ void train_vae(const char* name)
     layer_lengths[0] = 512;
     layer_lengths[1] = 256;
     eta = 0.0005;
-    beta = 2.0;
+    beta = 50.0;
     num_epochs = 1;
     act = ACT_SIGMOID;
     // ------

@@ -142,7 +142,7 @@ int main(int argc, char** argv)
         ae = ae_read(argv[1]);
         traverse_ae(ae, in);
         ae_destroy(ae);
-    } else if (string_length > 3 && strcmp(argv[1], ".vae") {
+    } else if (string_length > 3 && strcmp(argv[1], ".vae")) {
         vae = vae_read(argv[1]);
         traverse_vae(vae, in);
         vae_destroy(vae);

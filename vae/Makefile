@@ -27,11 +27,11 @@ heatmap: bin
 	@mkdir -p heatmap
 	gcc $(ARGS) -O2 heatmap.c -o bin/heatmap.exe
 
-train:
+train: bin
 	@mkdir -p images
 	gcc $(ARGS) -g3 train.c -o bin/train.exe
 
 bin:
-	@mkdir -p bin
+	mkdir -p bin
 
 .PHONY: interp csv debug clean traverse heatmap train

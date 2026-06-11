@@ -379,7 +379,7 @@ static void initialize_opencl(cl_platform_id* platform, cl_device_id* device, cl
     cl_int ret;
     int i;
     clGetPlatformIDs(1, platform, NULL);
-    clGetDeviceIDs(*platform, CL_DEVICE_TYPE_GPU, 1, device, NULL);
+    clGetDeviceIDs(*platform, CL_DEVICE_TYPE_ALL, 1, device, NULL);
     *context = clCreateContext(NULL, 1, device, NULL, NULL, NULL);
     *queue = clCreateCommandQueueWithProperties(*context, *device, NULL, NULL);
     source = read_file("vae.kern");
